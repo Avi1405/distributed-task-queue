@@ -1,262 +1,28 @@
-# Spring Boot Application Configuration
 spring:
   application:
     name: distributed-task-queue
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2s
 
-  # Redis Configuration
-  redis:
-    host: ${REDIS_HOST:localhost}
-    port: ${REDIS_PORT:6379}
-    password: ${REDIS_PASSWORD:}
-    database: ${REDIS_DATABASE:0}
-    timeout: 2000ms
-
-    # Connection Pool Settings
-    lettuce:
-      pool:
-        max-active: 20
-        max-idle: 10
-        min-idle: 2
-        max-wait: 2000ms
-        time-between-eviction-runs: 30000ms
-
-  # Jackson Configuration
-  jackson:
-    serialization:
-      write-dates-as-timestamps: false
-    deserialization:
-      fail-on-unknown-properties: false
-    default-property-inclusion: NON_NULL
-    time-zone: UTC
-
-  # JPA/Hibernate (if using database alongside Redis)
-  datasource:
-    url: ${DATABASE_URL:jdbc:h2:mem:testdb}
-    username: ${DATABASE_USERNAME:sa}
-    password: ${DATABASE_PASSWORD:}
-    driver-class-name: ${DATABASE_DRIVER:org.h2.Driver}
-
-# Server Configuration
 server:
   port: ${SERVER_PORT:8080}
-  servlet:
-    context-path: /api/v1
-  tomcat:
-    threads:
-      max: 200
-      min-spare: 10
-    connection-timeout: 20000ms
 
-# Management/Actuator Configuration
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus,env,configprops
-      base-path: /actuator
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: always
-      show-components: always
-    metrics:
-      enabled: true
-  metrics:
-    export:
-      prometheus:
-        enabled: true
-    distribution:
-      percentiles:
-        http.server.requests: 0.5, 0.95, 0.99
-        task.processing.duration: 0.5, 0.95, 0.99
-      percentiles-histogram:
-        http.server.requests: true
-        task.processing.duration: true
-    web:
-      server:
-        request:
-          autotime:
-            enabled: true
-
-# Application-specific Configuration
-task-queue:
-  # Worker Pool Configuration
-  workers:
-    core-pool-size: ${WORKER_CORE_POOL_SIZE:5}
-    max-pool-size: ${WORKER_MAX_POOL_SIZE:50}
-    queue-capacity: ${WORKER_QUEUE_CAPACITY:1000}
-    keep-alive-seconds: 60
-    thread-name-prefix: "task-worker-"
-
-  # Task Processing Configuration
-  processing:
-    batch-size: ${PROCESSING_BATCH_SIZE:10}
-    poll-interval-ms: ${POLL_INTERVAL_MS:1000}
-    processing-timeout-ms: ${PROCESSING_TIMEOUT_MS:300000}
-
-  # Retry Configuration
-  retry:
-    max-attempts: ${RETRY_MAX_ATTEMPTS:3}
-    initial-delay-ms: ${RETRY_INITIAL_DELAY:1000}
-    backoff-multiplier: ${RETRY_BACKOFF_MULTIPLIER:2.0}
-    max-delay-ms: ${RETRY_MAX_DELAY:60000}
-
-  # Circuit Breaker Configuration
-  circuit-breaker:
-    failure-rate-threshold: ${CB_FAILURE_RATE:50}
-    wait-duration-in-open-state-ms: ${CB_WAIT_DURATION:60000}
-    sliding-window-size: ${CB_SLIDING_WINDOW:10}
-    minimum-number-of-calls: ${CB_MIN_CALLS:5}
-
-  # Queue Configuration
-  queues:
-    high-priority: "task_queue:high"
-    medium-priority: "task_queue:medium"
-    low-priority: "task_queue:low"
-    dead-letter: "task_queue:dead_letter"
-    retry: "task_queue:retry"
-
-  # Monitoring Configuration
-  monitoring:
-    metrics-interval-seconds: ${METRICS_INTERVAL:30}
-    health-check-interval-seconds: ${HEALTH_CHECK_INTERVAL:10}
-    cleanup-interval-seconds: ${CLEANUP_INTERVAL:3600}
-
-# Logging Configuration
-logging:
-  level:
-    com.avinash.taskqueue: ${LOG_LEVEL:INFO}
-    org.springframework.data.redis: ${REDIS_LOG_LEVEL:WARN}
-    io.lettuce.core: ${LETTUCE_LOG_LEVEL:WARN}
-    org.springframework.scheduling: ${SCHEDULING_LOG_LEVEL:INFO}
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId},%X{spanId}] %logger{36} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId},%X{spanId}] %logger{36} - %msg%n"
-  file:
-    name: logs/task-queue.log
-    max-size: 100MB
-    max-history: 30
-
----
-# Development Profile
-spring:
-  config:
-    activate:
-      on-profile: development
-
-  # Development Redis (embedded for testing)
-  redis:
-    host: localhost
-    port: 6379
-
-  # H2 Console for development
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
-
-# Relaxed logging for development
-logging:
-  level:
-    com.avinash.taskqueue: DEBUG
-    org.springframework: INFO
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 
 task-queue:
-  workers:
-    core-pool-size: 2
-    max-pool-size: 10
-  processing:
-    poll-interval-ms: 500
-    batch-size: 5
+  max-attempts: ${TASK_QUEUE_MAX_ATTEMPTS:3}
+  retry-base-delay: ${TASK_QUEUE_RETRY_BASE_DELAY:2s}
 
----
-# Test Profile
-spring:
-  config:
-    activate:
-      on-profile: test
-
-  # Test Redis Configuration
-  redis:
-    host: localhost
-    port: 6370  # Different port for tests
-
-# Test-specific task queue configuration
-task-queue:
-  workers:
-    core-pool-size: 1
-    max-pool-size: 5
-    queue-capacity: 100
-  processing:
-    poll-interval-ms: 100
-    batch-size: 2
-    processing-timeout-ms: 10000
-  retry:
-    max-attempts: 2
-    initial-delay-ms: 100
-
-# Minimal logging for tests
-logging:
-  level:
-    com.avinash.taskqueue: WARN
-    org.springframework: WARN
-    org.testcontainers: WARN
-
----
-# Production Profile
-spring:
-  config:
-    activate:
-      on-profile: production
-
-  # Production Redis Configuration (should use Redis Cluster)
-  redis:
-    cluster:
-      nodes: ${REDIS_CLUSTER_NODES:redis-node-1:6379,redis-node-2:6379,redis-node-3:6379}
-      max-redirects: 3
-    password: ${REDIS_PASSWORD:}
-    ssl: ${REDIS_SSL:false}
-
-  # Production Database
-  datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/taskqueue}
-    username: ${DATABASE_USERNAME:taskqueue}
-    password: ${DATABASE_PASSWORD:}
-    driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
-
-# Production-optimized configuration
-task-queue:
-  workers:
-    core-pool-size: 10
-    max-pool-size: 100
-    queue-capacity: 2000
-  processing:
-    batch-size: 20
-    poll-interval-ms: 2000
-    processing-timeout-ms: 600000
-  monitoring:
-    metrics-interval-seconds: 15
-
-# Production logging
 logging:
   level:
     com.avinash.taskqueue: INFO
-    org.springframework: WARN
-  file:
-    name: /var/log/task-queue/application.log
-    max-size: 500MB
-    max-history: 90
-
-# JVM optimizations for production
-server:
-  tomcat:
-    threads:
-      max: 400
-      min-spare: 50
